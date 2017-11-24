@@ -9,15 +9,9 @@
 
 """
 
-# Script information for the file.
-__author__ = "Philippe T. Pinard"
-__email__ = "philippe.pinard@gmail.com"
-__version__ = "0.1"
-__copyright__ = "Copyright (c) 2010 Philippe T. Pinard"
-__license__ = "GPL v3"
-
 # Standard library modules.
-import os.path
+import os
+import re
 import warnings
 
 # Third party modules.
@@ -25,10 +19,20 @@ import mutagen.id3 as id3
 import mutagen.oggvorbis as ogg
 
 # Local modules.
+from musictools.utils import unicode_to_ascii
 
 # Globals and constants variables.
 EXTENSION_MP3 = 'mp3'
 EXTENSION_OGG = 'ogg'
+
+def _format(text):
+    text = unicode_to_ascii(text)
+    text = text.lower()
+    text = re.sub("[^a-z0-9()\-\[\]\s]", "", text)
+    text = re.sub(r'\W', '_', text)
+    text = re.sub('_+', '_', text)
+    text = text.rstrip('_')
+    return text
 
 class Artist(object):
 
@@ -40,7 +44,7 @@ class Artist(object):
         self._lastname = lastname.strip()
 
     def __repr__(self):
-        return self.name
+        return '<Artist({})>'.format(self.name)
 
     def _split_name(self, name):
         name = name.strip()
@@ -70,42 +74,38 @@ class Artist(object):
         return ' '.join(name)
 
     def __eq__(self, other):
-        equality = True
+        return self._firstname == other._firstname and self._lastname == other._lastname
 
-        equality = equality and self._firstname == other._firstname
-        equality = equality and self._lastname == other._lastname
-
-        return equality
-
-    def __ne__(self, other):
-        return not self == other
+    def __hash__(self):
+        return hash((self.__class__, self._firstname, self._lastname))
 
 class Song(object):
+
     def __init__(self, filepath):
         self.filepath = filepath
         _root, extension = os.path.splitext(filepath)
 
         # Reset
-        del self.artists
-        del self.albumtitle
-        del self.title
-        del self.tracknumber
-        del self.description
-        del self.year
-        del self.genre
+        self.artists = []
+        self.albumtitle = ''
+        self.title = ''
+        self.tracknumber = 0
+        self.description = ''
+        self.year = 0
+        self.genre = ''
 
         if extension == '.' + EXTENSION_MP3:
-            self._filetype = EXTENSION_MP3
+            self.filetype = EXTENSION_MP3
             self._read_mp3(filepath)
         elif extension == '.' + EXTENSION_OGG:
-            self._filetype = EXTENSION_OGG
+            self.filetype = EXTENSION_OGG
             self._read_ogg(filepath)
         else:
             raise IOError("Invalid extension (%s)" % extension)
 
     def __repr__(self):
         artists = ','.join(self.artists)
-        return "%i - %s - %s (%i) by %s" % \
+        return "<Song(%i - %s - %s (%i) by %s)>" % \
             (self.tracknumber, self.title, self.albumtitle, self.year, artists)
 
     def _read_mp3(self, filepath):
@@ -113,27 +113,31 @@ class Song(object):
 
         for code in ['TPE1', 'TPE2', 'TPE3', 'TPE4']:
             author = mp3info.get(code)
-            if author is not None:
-                artist = Artist(name=author.text[0])
+            if not author:
+                continue
+            if not author.text[0]:
+                continue
+
+            artist = Artist(name=author.text[0])
+
+            if artist not in self.artists:
                 self.artists.append(artist)
-        if self.artists:
-            self.primary_artist = self.artists[0]
 
         title = mp3info.get('TIT2', mp3info.get('TIT1'))
         if title is not None:
-            self.title = title.text[0]
+            self.title = str(title.text[0])
         else:
             warnings.warn("Song (%s) does not have a title." % filepath)
 
         albumtitle = mp3info.get('TALB')
         if albumtitle is not None:
-            self.albumtitle = albumtitle.text[0]
+            self.albumtitle = str(albumtitle.text[0])
         else:
             warnings.warn("Song (%s) does not have an album title." % filepath)
 
         tracknumber = mp3info.get('TRCK')
         if tracknumber is not None:
-            self.tracknumber = tracknumber.text[0].split('/')[0]
+            self.tracknumber = int(tracknumber.text[0].split('/')[0])
         else:
             warnings.warn("Song (%s) does not have a track number." % filepath)
 
@@ -143,7 +147,7 @@ class Song(object):
 
         year = mp3info.get('TYER', mp3info.get('TDRC'))
         if year is not None:
-            self.year = str(year.text[0])
+            self.year = int(str(year.text[0]))
         else:
             warnings.warn("Song (%s) does not have a year." % filepath)
 
@@ -159,23 +163,24 @@ class Song(object):
         authors = ogginfo.get('artist')
         for author in authors:
             artist = Artist(author)
-            self.artists.append(artist)
+            if artist not in self.artists:
+                self.artists.append(artist)
 
         title = ogginfo.get('title')
         if title is not None:
-            self.title = title[0]
+            self.title = str(title[0])
         else:
             warnings.warn("Song (%s) does not have a title." % filepath)
 
         albumtitle = ogginfo.get('album')
         if albumtitle is not None:
-            self.albumtitle = albumtitle[0]
+            self.albumtitle = str(albumtitle[0])
         else:
             warnings.warn("Song (%s) does not have an album title." % filepath)
 
         tracknumber = ogginfo.get('tracknumber')
         if tracknumber is not None:
-            self.tracknumber = tracknumber[0]
+            self.tracknumber = int(tracknumber[0])
         else:
             warnings.warn("Song (%s) does not have a track number." % filepath)
 
@@ -188,7 +193,7 @@ class Song(object):
 
         year = ogginfo.get('date')
         if year is not None:
-            self.year = year[0]
+            self.year = int(year[0])
         else:
             warnings.warn("Song (%s) does not have a year." % filepath)
 
@@ -199,126 +204,12 @@ class Song(object):
             warnings.warn("Song (%s) does not have a genre." % filepath)
 
     @property
-    def filepath(self):
-        """
-        The filepath of the song.
-        """
-        return self._filepath
-
-    @filepath.setter
-    def filepath(self, filepath):
-        assert os.path.exists(filepath)
-        self._filepath = filepath
+    def formatted_filename(self):
+        return "%i_%s.%s" % (self.tracknumber, _format(self.title), self.filetype)
 
     @property
-    def filetype(self):
-        """
-        Extension of the filepath.
-        """
-        _root, extension = os.path.splitext(self.filepath)
-        return extension[1:]
-
-    @property
-    def artists(self):
-        """
-        The song's artists.
-        :rtype: list
-        """
-        return self._artists
-
-    @artists.deleter
-    def artists(self):
-        self._artists = []
-
-    @property
-    def albumtitle(self):
-        """
-        The album's title.
-        """
-        return self._albumtitle
-
-    @albumtitle.setter
-    def albumtitle(self, albumtitle):
-        self._albumtitle = albumtitle
-
-    @albumtitle.deleter
-    def albumtitle(self):
-        self._albumtitle = ""
-
-    @property
-    def title(self):
-        """
-        The song's title.
-        """
-        return self._title
-
-    @title.setter
-    def title(self, title):
-        self._title = title
-
-    @title.deleter
-    def title(self):
-        self._title = ""
-
-    @property
-    def tracknumber(self):
-        """
-        The song's track number.
-        """
-        return self._tracknumber
-
-    @tracknumber.setter
-    def tracknumber(self, tracknumber):
-        self._tracknumber = int(tracknumber)
-
-    @tracknumber.deleter
-    def tracknumber(self):
-        self._tracknumber = 0
-
-    @property
-    def description(self):
-        """
-        The song's description.
-        """
-        return self._description
-
-    @description.setter
-    def description(self, description):
-        self._description = description
-
-    @description.deleter
-    def description(self):
-        self._description = ""
-
-    @property
-    def year(self):
-        """
-        The song's year
-        """
-        return self._year
-
-    @year.setter
-    def year(self, year):
-        self._year = int(str(year))
-
-    @year.deleter
-    def year(self):
-        self._year = 0
-
-    @property
-    def genre(self):
-        """
-        The song's genre
-        """
-        return self._genre
-
-    @genre.setter
-    def genre(self, genre):
-        self._genre = str(genre)
-
-    @genre.deleter
-    def genre(self):
-        self._genre = "Unknown"
+    def formatted_dirname(self):
+        return os.path.join(_format(self.artists[0].name), _format(self.albumtitle))
 
     def save(self):
         """
@@ -335,16 +226,16 @@ class Song(object):
         mp3info = id3.ID3(filepath)
 
         if len(self.artists) >= 1:
-            text = id3.TPE1(encoding=3, text=[self.artists[0]])
+            text = id3.TPE1(encoding=3, text=[self.artists[0].name])
             mp3info['TPE1'] = text
         if len(self.artists) >= 2:
-            text = id3.TPE2(encoding=3, text=[self.artists[1]])
+            text = id3.TPE2(encoding=3, text=[self.artists[1].name])
             mp3info['TPE2'] = text
         if len(self.artists) >= 3:
-            text = id3.TPE3(encoding=3, text=[self.artists[2]])
+            text = id3.TPE3(encoding=3, text=[self.artists[2].name])
             mp3info['TPE3'] = text
         if len(self.artists) >= 4:
-            text = id3.TPE4(encoding=3, text=[self.artists[3]])
+            text = id3.TPE4(encoding=3, text=[self.artists[3].name])
             mp3info['TPE4'] = text
 
         TIT2 = id3.TIT2(encoding=3, text=self.title)
@@ -376,7 +267,7 @@ class Song(object):
     def _save_ogg(self, filepath):
         ogginfo = ogg.OggVorbis(filepath)
 
-        ogginfo['artist'] = [str(artist) for artist in self.artists]
+        ogginfo['artist'] = [artist.name for artist in self.artists]
 
         ogginfo['title'] = [self.title]
 

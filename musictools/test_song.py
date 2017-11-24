@@ -6,13 +6,6 @@
 
 """
 
-# Script information for the file.
-__author__ = "Philippe T. Pinard"
-__email__ = "philippe.pinard@gmail.com"
-__version__ = "0.1"
-__copyright__ = "Copyright (c) 2011 Philippe T. Pinard"
-__license__ = "GPL v3"
-
 # Standard library modules.
 import unittest
 import logging
@@ -143,11 +136,17 @@ class TestSong(unittest.TestCase):
         self.assertEqual(self.song1.genre, 'Silence')
         self.assertEqual(self.song2.genre, 'Vocal')
 
+    def testformatted_filename(self):
+        self.assertEqual('2_silence.mp3', self.song1.formatted_filename)
+
+    def testformatted_dirname(self):
+        self.assertEqual('piman/quod_libet_test_data', self.song1.formatted_dirname)
+
     def _build_song(self, filepath):
         song = Song(filepath)
 
         song.albumtitle = 'abc'
-        del song.artists
+        song.artists.clear()
         song.artists.extend([Artist(name='a'), Artist(name='b'),
                              Artist(name='c'), Artist(name='d')])
         song.description = 'def'

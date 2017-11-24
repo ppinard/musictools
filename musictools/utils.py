@@ -49,7 +49,7 @@ def unicode_to_ascii(unistr):
             if not decomposition: # no decomposition
                 continue
 
-            root, _modifier = decomposition.split()
+            root, *_modifier = decomposition.split()
             try:
                 char = chr(int(root, 16)) #root is in hex base
             except:
