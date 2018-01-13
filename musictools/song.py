@@ -93,6 +93,7 @@ class Song(object):
         self.description = ''
         self.year = 0
         self.genre = ''
+        self.discnumber = 0
 
         if extension == '.' + EXTENSION_MP3:
             self.filetype = EXTENSION_MP3
@@ -157,6 +158,13 @@ class Song(object):
         else:
             warnings.warn("Song (%s) does not have a genre." % filepath)
 
+        disc = mp3info.get('TPOS')
+        if disc is not None:
+            discnumber, total = map(int, disc.text[0].split('/'))
+            self.discnumber = discnumber if total >= 2 else 0
+        else:
+            warnings.warn("Song (%s) does not have a disc number." % filepath)
+
     def _read_ogg(self, filepath):
         ogginfo = ogg.OggVorbis(filepath)
 
@@ -205,7 +213,11 @@ class Song(object):
 
     @property
     def formatted_filename(self):
-        return "%i_%s.%s" % (self.tracknumber, _format(self.title), self.filetype)
+        if self.discnumber != 0:
+            return "{:02d}-{:02d}_{}.{}".format(self.discnumber, self.tracknumber,
+                                                _format(self.title), self.filetype)
+        else:
+            return "{:02d}_{}.{}".format(self.tracknumber, _format(self.title), self.filetype)
 
     @property
     def formatted_dirname(self):
