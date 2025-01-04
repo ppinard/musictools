@@ -28,7 +28,7 @@ EXTENSION_OGG = 'ogg'
 def _format(text):
     text = unicode_to_ascii(text)
     text = text.lower()
-    text = re.sub("[^a-z0-9()\-\[\]\s]", "", text)
+    text = re.sub(r"[^a-z0-9()\-\[\]\s]", "", text)
     text = re.sub(r'\W', '_', text)
     text = re.sub('_+', '_', text)
     text = text.rstrip('_')

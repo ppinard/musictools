@@ -21,7 +21,6 @@ __license__ = "GPL v3"
 # Standard library modules.
 import os
 import sys
-import imp
 from subprocess import call
 import re
 import logging
@@ -40,7 +39,7 @@ logging.getLogger().setLevel(logging.DEBUG)
 def _format(text):
     text = unicode_to_ascii(text)
     text = text.lower()
-    text = re.sub("[^a-z0-9()\-\[\]\s]", "", text)
+    text = re.sub(r"[^a-z0-9()\-\[\]\s]", "", text)
     text = re.sub(r'\W', '_', text)
     text = re.sub('_+', '_', text)
     return text
@@ -52,7 +51,7 @@ def _dirname(album_artist, album_title):
     return os.path.join(_format(album_artist), _format(album_title))
 
 # Parsing configuration
-if hasattr(sys, "frozen") or hasattr(sys, "importers") or imp.is_frozen("__main__"):
+if hasattr(sys, "frozen") or hasattr(sys, "importers"):
     main_dir = os.path.dirname(sys.executable)
 else:
     main_dir = os.path.dirname(sys.argv[0])
@@ -102,6 +101,7 @@ except Exception as ex:
 # Release information
 print('-' * 79)
 print('Release found')
+print(release.keys())
 
 album_title = release['title']
 print('Album title: %s' % album_title)
@@ -113,7 +113,7 @@ artists = []
 for artist in release['artist-credit']:
     artists.append(Artist(name=artist['artist']['name']))
 
-year = release['date']
+year = release.get('date', 0)
 print('Album year: %s' % year)
 
 print('=' * 79)
@@ -122,7 +122,8 @@ print('=' * 79)
 track_offset = 0
 tracks = []
 for medium in release['medium-list']:
-    if medium['disc-list'][0]['id'] == disc_id:
+    disc_ids = [disc['id'] for disc in medium['disc-list']]
+    if disc_id in disc_ids:
         tracks = medium['track-list']
         break
 
